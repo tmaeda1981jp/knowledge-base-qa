@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ナレッジベース Q&A</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/15.0.7/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.2.4/purify.min.js"></script>
+<style>
+  :root {
+    --bg: #f4f5f7; --panel: #fff; --ink: #1f2933; --muted: #6b7280; --line: #e5e7eb;
+    --accent: #b45309; --accent-soft: #fff7ed; --blue: #1d4ed8; --blue-soft: #eff6ff;
+    --green: #047857; --green-soft: #ecfdf5; --red: #b91c1c; --red-soft: #fef2f2;
+    --purple: #6d28d9; --purple-soft: #f5f3ff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif; background: var(--bg); color: var(--ink); height: 100vh; display: flex; flex-direction: column; }
+  header { background: #1f2933; color: #fff; padding: 12px 20px; display: flex; align-items: center; gap: 16px; }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  header .sub { font-size: 12px; opacity: .75; }
+  header .status { margin-left: auto; font-size: 12px; display: flex; gap: 8px; align-items: center; }
+  .pill { border-radius: 999px; padding: 2px 10px; font-size: 11px; background: #374151; }
+  .pill.jev { background: var(--purple); } .pill.claude { background: var(--accent); }
+  .layout { flex: 1; display: grid; grid-template-columns: 280px 1fr; min-height: 0; }
+  aside { background: var(--panel); border-right: 1px solid var(--line); padding: 16px; overflow-y: auto; }
+  aside h2 { font-size: 13px; color: var(--muted); margin: 0 0 8px; text-transform: uppercase; letter-spacing: .04em; }
+  aside ul { list-style: none; padding: 0; margin: 0 0 16px; font-size: 13px; }
+  aside li { display: flex; justify-content: space-between; padding: 6px 8px; border-radius: 6px; background: #f9fafb; margin-bottom: 4px; }
+  aside li span.n { color: var(--muted); }
+  .btn { display: inline-block; border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 8px 12px; font-size: 13px; cursor: pointer; width: 100%; text-align: center; margin-bottom: 8px; color: var(--ink); }
+  .btn:hover { background: #f3f4f6; } .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .drop { border: 2px dashed var(--line); border-radius: 8px; padding: 14px; text-align: center; font-size: 12px; color: var(--muted); cursor: pointer; margin-bottom: 8px; }
+  .drop.over { border-color: var(--accent); background: var(--accent-soft); }
+  .note { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  main { display: flex; flex-direction: column; min-height: 0; }
+  #chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+  .msg { max-width: 820px; }
+  .msg.user { align-self: flex-end; background: var(--blue); color: #fff; padding: 10px 14px; border-radius: 14px 14px 2px 14px; white-space: pre-wrap; }
+  .msg.bot { align-self: flex-start; background: var(--panel); border: 1px solid var(--line); border-radius: 14px 14px 14px 2px; padding: 14px 16px; width: 100%; }
+  .msg.bot .answer { line-height: 1.7; font-size: 14px; }
+  .msg.bot .answer.plain { white-space: pre-wrap; }
+  .answer > :first-child { margin-top: 0; } .answer > :last-child { margin-bottom: 0; }
+  .answer h1, .answer h2, .answer h3 { font-size: 15px; margin: 14px 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+  .answer h1 { font-size: 16px; }
+  .answer p { margin: 6px 0; }
+  .answer ul, .answer ol { margin: 6px 0; padding-left: 22px; }
+  .answer li { margin: 2px 0; }
+  .answer table { border-collapse: collapse; margin: 8px 0; font-size: 13px; display: block; overflow-x: auto; max-width: 100%; }
+  .answer th, .answer td { border: 1px solid var(--line); padding: 5px 10px; text-align: left; white-space: nowrap; }
+  .answer th { background: #f3f4f6; font-weight: 600; }
+  .answer tr:nth-child(even) td { background: #fafafa; }
+  .answer code { background: #f3f4f6; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  .answer pre { background: #1f2933; color: #e5e7eb; padding: 10px 12px; border-radius: 8px; overflow-x: auto; }
+  .answer pre code { background: none; color: inherit; padding: 0; }
+  .answer blockquote { margin: 6px 0; padding: 4px 12px; border-left: 3px solid var(--line); color: var(--muted); }
+  .answer hr { border: 0; border-top: 1px solid var(--line); margin: 10px 0; }
+  .answer a { color: var(--blue); }
+  .msg.bot .answer .ref { background: var(--blue-soft); color: var(--blue); border-radius: 4px; padding: 0 4px; font-size: 12px; }
+  .msg.bot.notfound { border-left: 4px solid var(--red); }
+  .msg.bot.found { border-left: 4px solid var(--green); }
+  .meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; font-size: 11px; }
+  .tag { border-radius: 4px; padding: 2px 8px; background: #f3f4f6; color: var(--muted); }
+  .tag.ok { background: var(--green-soft); color: var(--green); } .tag.ng { background: var(--red-soft); color: var(--red); }
+  .tag.jev { background: var(--purple-soft); color: var(--purple); }
+  .sources { margin-top: 12px; display: grid; gap: 8px; }
+  .src { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 13px; background: #fafafa; }
+  .src .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-weight: 600; font-size: 12px; }
+  .src .head .file { color: var(--blue); }
+  .bar { height: 6px; background: #e5e7eb; border-radius: 3px; width: 100px; overflow: hidden; display: inline-block; vertical-align: middle; margin-left: 6px; }
+  .bar i { display: block; height: 100%; background: var(--purple); }
+  .src .ex { color: #374151; white-space: pre-wrap; line-height: 1.5; }
+  details { margin-top: 12px; font-size: 12px; }
+  summary { cursor: pointer; color: var(--muted); }
+  .steps { list-style: none; padding: 0; margin: 8px 0 0; border-left: 2px solid var(--line); }
+  .steps li { padding: 4px 0 4px 14px; position: relative; color: #374151; }
+  .steps li::before { content: ""; position: absolute; left: -6px; top: 10px; width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+  .steps li.grade::before, .steps li.verify::before { background: var(--purple); }
+  .steps li.generate::before { background: var(--green); } .steps li.no_answer::before { background: var(--red); } .steps li.rewrite::before { background: var(--accent); }
+  .steps b { font-family: Menlo, monospace; font-size: 11px; margin-right: 6px; }
+  form { display: flex; gap: 8px; padding: 14px 20px; background: var(--panel); border-top: 1px solid var(--line); }
+  textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font: inherit; font-size: 14px; height: 48px; }
+  form button { border: 0; background: var(--accent); color: #fff; border-radius: 10px; padding: 0 20px; font-size: 14px; cursor: pointer; }
+  form button:disabled { opacity: .5; }
+  .hint { align-self: center; color: var(--muted); font-size: 13px; text-align: center; margin-top: 40px; line-height: 1.8; }
+  .hint button { background: none; border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; margin: 4px; cursor: pointer; font-size: 12px; color: var(--ink); }
+  .typing { color: var(--muted); font-size: 13px; }
+  @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } aside { display: none; } }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>ナレッジベース Q&A</h1>
+    <div class="sub">取り込んだ資料に根拠がある範囲で答えます。根拠が無ければ「分かりません」と答えます</div>
+  </div>
+  <div class="status" id="status">
+    <span class="pill" id="pill-judge">判定: —</span>
+    <span class="pill" id="pill-chunks">チャンク: —</span>
+  </div>
+</header>
+
+<div class="layout">
+  <aside>
+    <h2>取り込み済み資料</h2>
+    <ul id="docs"><li><span>読み込み中…</span></li></ul>
+    <h2>資料を追加</h2>
+    <div class="drop" id="drop">PDF / Markdown / テキストをドロップ<br>またはクリックして選択</div>
+    <input type="file" id="file" accept=".pdf,.md,.markdown,.txt" hidden>
+    <button class="btn" id="btn-ingest">docs/ を一括取り込み</button>
+    <p class="note">docs/ が空のときは sample_docs/ を取り込みます。アップロードしたファイルは docs/ に保存され、同名なら差し替えます。</p>
+    <p class="note" id="msg"></p>
+  </aside>
+
+  <main>
+    <div id="chat">
+      <div class="hint" id="hint">
+        資料について質問してください。<br>
+        <button data-q="黒滝蒸留所の見学は何分くらいかかりますか？">黒滝蒸留所の見学は何分くらい？</button>
+        <button data-q="シェリー樽で熟成するとどんな風味になりますか？">シェリー樽の風味は？</button>
+        <button data-q="フィニッシュとは何ですか？">フィニッシュとは？</button>
+        <button data-q="黒滝蒸留所の社長の名前は？">（資料に無い質問）社長の名前は？</button>
+      </div>
+    </div>
+    <form id="form">
+      <textarea id="q" placeholder="質問を入力（Cmd/Ctrl + Enter で送信）" required></textarea>
+      <button type="submit" id="send">送信</button>
+    </form>
+  </main>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const chat = $("#chat"), form = $("#form"), q = $("#q"), send = $("#send"), msg = $("#msg");
+
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function pct(x) { return x == null ? "—" : Math.round(x * 100) + "%"; }
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, opts);
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body.detail || `HTTP ${r.status}`);
+  return body;
+}
+
+async function refresh() {
+  try {
+    const h = await api("/api/health");
+    $("#pill-judge").textContent = `判定: ${h.judge === "jev" ? "Jev" : "Claude"}`;
+    $("#pill-judge").className = `pill ${h.judge}`;
+    $("#pill-chunks").textContent = `チャンク: ${h.chunks}`;
+    const d = await api("/api/documents");
+    $("#docs").innerHTML = d.documents.length
+      ? d.documents.map(x => `<li><span>${esc(x.file)}</span><span class="n">${x.chunks}</span></li>`).join("")
+      : `<li><span>まだ資料がありません</span></li>`;
+  } catch (e) { msg.textContent = "状態の取得に失敗: " + e.message; }
+}
+
+function addUser(text) {
+  $("#hint")?.remove();
+  const el = document.createElement("div"); el.className = "msg user"; el.textContent = text; chat.appendChild(el);
+  chat.scrollTop = chat.scrollHeight; return el;
+}
+function addTyping() {
+  const el = document.createElement("div"); el.className = "msg bot typing"; el.textContent = "検索 → 判定 → 回答 → 検証 を実行中…";
+  chat.appendChild(el); chat.scrollTop = chat.scrollHeight; return el;
+}
+
+// Markdown を描画し、本文中の [1] [2] を根拠カードと同じ見た目にする
+function renderMarkdown(text) {
+  if (!(window.marked && window.DOMPurify)) {
+    return { html: esc(text).replace(/\[(\d+)\]/g, '<span class="ref">[$1]</span>'), plain: true };
+  }
+  const raw = marked.parse(text, { gfm: true, breaks: true });
+  const box = document.createElement("div");
+  box.innerHTML = DOMPurify.sanitize(raw);
+  const walker = document.createTreeWalker(box, NodeFilter.SHOW_TEXT);
+  const targets = [];
+  while (walker.nextNode()) {
+    const n = walker.currentNode;
+    if (/\[\d+\]/.test(n.nodeValue) && !n.parentElement.closest("code, pre")) targets.push(n);
+  }
+  for (const n of targets) {
+    const span = document.createElement("span");
+    span.innerHTML = esc(n.nodeValue).replace(/\[(\d+)\]/g, '<span class="ref">[$1]</span>');
+    n.replaceWith(...span.childNodes);
+  }
+  return { html: box.innerHTML, plain: false };
+}
+
+function renderBot(el, r) {
+  el.className = `msg bot ${r.found ? "found" : "notfound"}`;
+  const { html: answer, plain } = renderMarkdown(r.answer);
+  const judgeTag = r.judge.startsWith("jev") ? "jev" : "";
+  const meta = [
+    `<span class="tag ${r.found ? "ok" : "ng"}">${r.found ? "根拠あり・裏付け確認済" : "資料から回答できず"}</span>`,
+    `<span class="tag ${judgeTag}">判定: ${esc(r.judge)}</span>`,
+    r.groundedness != null ? `<span class="tag">裏付け ${pct(r.groundedness)}</span>` : "",
+    r.rewritten_question ? `<span class="tag">言い換え: ${esc(r.rewritten_question)}</span>` : "",
+  ].join("");
+  const sources = r.sources.length ? `<div class="sources">${r.sources.map((s, i) => `
+    <div class="src">
+      <div class="head"><span>[${i + 1}] <span class="file">${esc(s.file)}</span>${s.page ? ` p.${s.page}` : ""}</span>
+        <span>関係 ${pct(s.relevance)}<span class="bar"><i style="width:${Math.round((s.relevance ?? 0) * 100)}%"></i></span></span></div>
+      <div class="ex">${esc(s.excerpt)}</div>
+    </div>`).join("")}</div>` : "";
+  const steps = `<details><summary>どう考えたか（LangGraph の経路 ${r.steps.length} ステップ）</summary>
+    <ol class="steps">${r.steps.map(s => `<li class="${esc(s.node)}"><b>${esc(s.node)}</b>${esc(s.detail)}</li>`).join("")}</ol></details>`;
+  el.innerHTML = `<div class="answer${plain ? " plain" : ""}">${answer}</div><div class="meta">${meta}</div>${sources}${steps}`;
+  chat.scrollTop = chat.scrollHeight;
+}
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const text = q.value.trim(); if (!text) return;
+  q.value = ""; send.disabled = true;
+  addUser(text);
+  const el = addTyping();
+  try {
+    const r = await api("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: text }) });
+    renderBot(el, r);
+  } catch (err) {
+    el.className = "msg bot notfound"; el.textContent = "エラー: " + err.message;
+  } finally { send.disabled = false; q.focus(); }
+});
+// Enter は改行、送信は Cmd/Ctrl+Enter（日本語入力の変換確定 Enter で送信されないようにする）
+q.addEventListener("keydown", (e) => {
+  if (e.isComposing || e.keyCode === 229) return;
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); form.requestSubmit(); }
+});
+chat.addEventListener("click", (e) => { const b = e.target.closest("button[data-q]"); if (b) { q.value = b.dataset.q; form.requestSubmit(); } });
+
+// ---- 取り込み ----
+$("#btn-ingest").addEventListener("click", async () => {
+  const btn = $("#btn-ingest"); btn.disabled = true; msg.textContent = "取り込み中…";
+  try {
+    const r = await api("/api/ingest", { method: "POST" });
+    msg.textContent = `${r.source_dir} から ${r.files.length} ファイル / ${r.chunks} チャンクを取り込みました` + (r.warnings.length ? `（警告: ${r.warnings.join(" / ")}）` : "");
+    refresh();
+  } catch (e) { msg.textContent = "取り込み失敗: " + e.message; } finally { btn.disabled = false; }
+});
+const drop = $("#drop"), fileInput = $("#file");
+drop.addEventListener("click", () => fileInput.click());
+drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("over"); uploadFiles(e.dataTransfer.files); });
+fileInput.addEventListener("change", () => uploadFiles(fileInput.files));
+async function uploadFiles(files) {
+  for (const f of files) {
+    msg.textContent = `${f.name} をアップロード中…`;
+    const fd = new FormData(); fd.append("file", f);
+    try { const r = await api("/api/upload", { method: "POST", body: fd }); msg.textContent = `${r.file}: ${r.chunks} チャンクを取り込みました`; }
+    catch (e) { msg.textContent = `${f.name}: ${e.message}`; }
+  }
+  fileInput.value = ""; refresh();
+}
+
+refresh();
+</script>
+</body>
+</html>

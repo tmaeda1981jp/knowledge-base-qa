@@ -1,0 +1,29 @@
+# --- 秘密情報 ---
+.env
+.env.*
+!.env.example
+
+# --- 本番資料（著作権の都合で公開しない）---
+docs/*
+!docs/.gitkeep
+
+# --- 生成物（ベクトルDB・モデルキャッシュ）---
+data/
+*.sqlite3
+chroma/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+.uv-cache/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# --- OS / エディタ ---
+.DS_Store
+.idea/
+.vscode/

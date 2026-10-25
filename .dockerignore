@@ -1,0 +1,15 @@
+.venv/
+.uv-cache/
+.git/
+.env
+.env.*
+data/
+docs/
+design/
+screenshots/
+tests/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.claude/

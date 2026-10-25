@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>設計書 — ナレッジベース Q&A（RAG）</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --ink: #1f2933; --muted: #52606d;
+    --line: #e4e7eb; --accent: #b45309; --accent-bg: #fff7ed;
+    --blue: #1d4ed8; --blue-bg: #eff6ff; --green: #047857; --green-bg: #ecfdf5;
+    --red: #b91c1c; --red-bg: #fef2f2; --purple: #6d28d9; --purple-bg: #f5f3ff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif; background: var(--bg); color: var(--ink); line-height: 1.7; }
+  header { background: linear-gradient(135deg, #1f2933, #3e4c59); color: #fff; padding: 40px 24px; }
+  header .wrap { max-width: 1080px; margin: 0 auto; }
+  header h1 { margin: 0 0 8px; font-size: 26px; }
+  header p { margin: 4px 0; opacity: .85; }
+  .badge { display: inline-block; background: var(--accent); color: #fff; font-size: 12px; padding: 2px 10px; border-radius: 999px; margin-right: 8px; }
+  main { max-width: 1080px; margin: 0 auto; padding: 24px 16px 80px; }
+  nav.toc { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; }
+  nav.toc ol { margin: 8px 0 0; padding-left: 20px; columns: 2; }
+  nav.toc a { color: var(--blue); text-decoration: none; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 24px 28px; margin-bottom: 24px; }
+  h2 { margin: 0 0 16px; font-size: 20px; padding-left: 12px; border-left: 5px solid var(--accent); }
+  h3 { margin: 24px 0 8px; font-size: 16px; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 8px 0 16px; }
+  th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: #f1f3f5; white-space: nowrap; }
+  tr.new td { background: var(--purple-bg); }
+  code { background: #f1f3f5; padding: 1px 6px; border-radius: 4px; font-size: 13px; font-family: "SF Mono", Menlo, Consolas, monospace; }
+  pre { background: #1f2933; color: #e4e7eb; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 13px; line-height: 1.5; }
+  pre code { background: none; color: inherit; padding: 0; }
+  .mermaid { background: #fff; border: 1px dashed var(--line); border-radius: 8px; padding: 12px; margin: 8px 0 16px; text-align: center; }
+  .callout { border-radius: 8px; padding: 12px 16px; margin: 12px 0; font-size: 14px; }
+  .callout.note { background: var(--blue-bg); border-left: 4px solid var(--blue); }
+  .callout.warn { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .callout.ok { background: var(--green-bg); border-left: 4px solid var(--green); }
+  .callout.danger { background: var(--red-bg); border-left: 4px solid var(--red); }
+  .callout.new { background: var(--purple-bg); border-left: 4px solid var(--purple); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .kpi { background: #f8fafc; border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+  .kpi b { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  .tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 4px; background: var(--blue-bg); color: var(--blue); margin-right: 4px; }
+  .tag.rec { background: var(--green-bg); color: var(--green); font-weight: bold; }
+  .tag.new { background: var(--purple-bg); color: var(--purple); font-weight: bold; }
+  .tag.done { background: #f1f3f5; color: var(--muted); font-weight: bold; }
+  .tree { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 13px; background: #f8fafc; border: 1px solid var(--line); border-radius: 8px; padding: 16px; white-space: pre; overflow-x: auto; line-height: 1.6; }
+  .tree .c { color: var(--muted); }
+  .tree .n { background: var(--purple-bg); color: var(--purple); }
+  footer { text-align: center; color: var(--muted); font-size: 12px; padding: 24px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <span class="badge">設計書 v2.2</span><span class="badge" style="background:#6d28d9">Jev 組み込み版</span><span class="badge" style="background:#047857">承認済み・実装済み</span>
+    <h1>専門知識ナレッジベースQ&A（RAG）デモ — 設計・実装計画</h1>
+    <p>作成日：2026-10-25　／　読み手：PM・開発者</p>
+    <p>デモ題材：ウイスキーの資料集　／　設計上は「社内ドキュメント・専門知識Q&A」の汎用形</p>
+  </div>
+</header>
+
+<main>
+
+<section id="history">
+  <h2>変更履歴</h2>
+  <table>
+    <tr><th>版</th><th>日付</th><th>内容</th></tr>
+    <tr><td>v1</td><td>2026-10-25</td><td>初版。技術選定・構成・作業ステップを提示（v2 に統合済み。本ファイルを唯一の設計書として更新し続ける）</td></tr>
+    <tr class="new"><td><b>v2</b></td><td>2026-10-25</td><td>
+      <b>TypeSafe AI の判断特化モデル「Jev」を組み込み。</b>変更点は本文中で <span class="tag new">v2</span> と紫色で示す。<br>
+      ① <b>grade ノード</b>（チャンクの関係判定）を Claude から Jev に置き換え（Jev キー未設定時は Claude にフォールバック）<br>
+      ② <b>verify ノード</b>を新設。生成した回答が根拠に裏付けられているかを Jev が判定し、裏付けが弱ければ「断定できません」に差し替える<br>
+      ③ 判断処理を <code>app/judge.py</code> に集約（Jev / Claude の2実装）。環境変数・技術選定表・作業ステップ・リスクを更新<br>
+      ④ v1 の判断事項のうち B（既定モデル）は <code>claude-opus-5-5</code> で決定済み
+    </td></tr>
+    <tr class="new"><td><b>v2.2</b></td><td>2026-10-26</td><td>
+      <b>名称を「ナレッジベース Q&A」に統一。</b>公開リポジトリ名は <code>knowledge-base-qa</code>。ウイスキーは「同梱サンプルの題材」として扱い、
+      画面・README・パッケージ名から特定分野の表現を外した（サンプル資料とサンプル質問はそのまま）
+    </td></tr>
+    <tr class="new"><td><b>v2.1</b></td><td>2026-10-26</td><td>
+      <b>検索をハイブリッド化。</b>実資料（OCR された蒸留所一覧の表）で「ディアジオ」のカタカナ検索が外れたため、
+      ベクトル検索に BM25（文字 2-gram のキーワード検索）を並走させ、RRF で順位を合成する <code>app/retriever.py</code> を追加。
+      取得件数 k を 4 → 8 に増やし、一覧系の質問には「資料で確認できた範囲では」と前置きするようプロンプトを調整。
+      チャンクは 400/80 字（埋め込みモデルの入力上限に合わせて実装時に変更）。<br>
+      <b>スキャン資料対策（同日追記）：</b>OCR が「ペルノリカール」を「ベルノリカール」と読む揺れが 34/41 件あったため、
+      BM25 の照合で濁点・半濁点を無視。結合セルの見出しと行が別チャンクに分かれる問題には、取得チャンクを
+      <b>同じページ全体に展開</b>してから判定・回答に渡す方式（<code>EXPAND_TO_PAGE</code>）で対処。
+      実測：「ペルノリカールが所有する蒸留所」で正解 12 件中 7 件 → 12 件。
+      verify の判定指示も較正（一覧回答で 0.63〜0.73 → 0.88〜0.90、捏造回答は 0.06 のまま）
+    </td></tr>
+  </table>
+</section>
+
+<nav class="toc">
+  <b>目次</b>
+  <ol>
+    <li><a href="#overview">概要</a></li>
+    <li><a href="#arch">システム構成図</a></li>
+    <li><a href="#graph">LangGraph のフロー図</a></li>
+    <li><a href="#seq">処理シーケンス</a></li>
+    <li><a href="#tech">技術選定表</a></li>
+    <li><a href="#dirs">ディレクトリ構成</a></li>
+    <li><a href="#api">API一覧</a></li>
+    <li><a href="#steps">作業ステップ</a></li>
+    <li><a href="#risks">リスク・判断が必要な点</a></li>
+  </ol>
+</nav>
+
+<!-- 1 -->
+<section id="overview">
+  <h2>1. 概要</h2>
+  <p>
+    PDF / Markdown / テキストの資料を取り込み、チャットで質問すると<b>資料の該当箇所（ファイル名・ページ・抜粋）を根拠として示しながら回答</b>するQ&Aアプリです。<br>
+    <span class="tag new">v2</span> <b>「文章を書くのは Claude、判断するのは Jev」</b>という役割分担にします。検索したチャンクが質問に関係あるかの判定と、生成した回答が根拠に裏付けられているかの検証を、判断特化モデル Jev が高速・低コストで行います。<br>
+    関係するチャンクが無ければ<b>質問を言い換えて1回だけ再検索</b>し、それでも無ければ<b>「資料からは分かりません」</b>と正直に答えます。LangChain / LangGraph の最小構成で、<b>Docker で一発起動</b>できるポートフォリオ用デモとして半日規模で仕上げます。
+  </p>
+  <div class="grid">
+    <div class="kpi"><b>できること</b>資料の一括取り込み／UIからのアップロード／根拠つき回答／回答の裏付け検証／「分からない」の明示</div>
+    <div class="kpi"><b>作らないもの</b>認証・ユーザー管理／DBの作り込み／管理画面／会話履歴の永続化</div>
+    <div class="kpi"><b>差し替え可能な点</b><code>docs/</code> の資料を入れ替えるだけで、社内マニュアル・規程集・製品資料のQ&Aになる。Jev キーが無くても Claude だけで動く</div>
+  </div>
+  <div class="callout new">
+    <b>Jev とは：</b>TypeSafe AI が2026年9月に公開した「判断特化」モデル。文章を生成せず、判定対象のデータ（state）と型つきの質問を渡すと、<b>Noul（真である確率 0〜1）／Choice（選択）／Score（採点）</b>で答えを返す。
+    入力 $0.042/100万トークン・出力無料、応答は数百ミリ秒。文章を作らないので「捏造」は起きないが、判断自体が間違う可能性はあるため、本設計では<b>閾値とフォールバック</b>を前提にする。
+  </div>
+</section>
+
+<!-- 2 -->
+<section id="arch">
+  <h2>2. システム構成図</h2>
+  <p>1コンテナ構成です。FastAPI が API と画面（静的HTML）を両方配信し、ベクトルDB（Chroma）はコンテナ内のファイルとして永続化します。外部サービスは Claude API と <span class="tag new">v2</span> Jev API の2つです。</p>
+  <div class="mermaid">
+flowchart LR
+  subgraph User["利用者"]
+    B["ブラウザ<br/>チャット画面 (static/index.html)"]
+  end
+  subgraph Docker["Docker コンテナ (app)"]
+    API["FastAPI<br/>app/main.py"]
+    ING["取り込み処理<br/>app/ingest.py"]
+    G["LangGraph<br/>app/graph.py<br/>retrieve → grade → generate → verify<br/>／ rewrite ／ no_answer"]
+    J["判断インターフェース<br/>app/judge.py<br/>JevJudge ／ ClaudeJudge(フォールバック)"]
+    EMB["埋め込みモデル<br/>FastEmbed（ローカル・APIキー不要）"]
+    VS[("Chroma<br/>ベクトルDB<br/>data/chroma/")]
+  end
+  subgraph Files["資料（ホストのフォルダをマウント）"]
+    D["docs/ 本番資料（git除外）"]
+    S["sample_docs/ お試し資料（同梱）"]
+  end
+  C["Claude API<br/>(langchain-anthropic)<br/>言い換え・回答生成"]
+  JEV["Jev API<br/>(typesafe-sdk)<br/>関係判定・裏付け検証"]
+
+  B -- "質問 / アップロード" --> API
+  API -- "回答 + 根拠 + 判定履歴" --> B
+  API --> G
+  API --> ING
+  D & S --> ING
+  ING -- "チャンク化 → ベクトル化" --> EMB --> VS
+  G -- "類似検索" --> VS
+  G -- "言い換え / 回答生成" --> C
+  G -- "grade / verify" --> J
+  J -- "Noul（確率）" --> JEV
+  J -. "キー未設定時" .-> C
+
+  style C fill:#fff7ed,stroke:#b45309
+  style JEV fill:#f5f3ff,stroke:#6d28d9
+  style J fill:#f5f3ff,stroke:#6d28d9
+  style VS fill:#eff6ff,stroke:#1d4ed8
+  </div>
+  <div class="callout note">
+    <b>APIキーについて：</b>埋め込みはローカル（FastEmbed）なので、必須キーは <code>ANTHROPIC_API_KEY</code> の1つだけです。<code>TYPESAFE_API_KEY</code> は<b>任意</b>で、未設定なら grade / verify を Claude が代行します（cloneした人がすぐ試せる状態を維持）。
+  </div>
+</section>
+
+<!-- 3 -->
+<section id="graph">
+  <h2>3. LangGraph のフロー図</h2>
+  <p>CLAUDE.md の要件（retrieve → grade → generate / rewrite / no_answer、再試行は最大1回）に、<span class="tag new">v2</span> <b>verify ノード</b>を1つ追加した6ノード＋2つの条件分岐です。</p>
+  <div class="mermaid">
+flowchart TD
+  START((START)) --> R["retrieve（ハイブリッド）<br/>ベクトル検索 ＋ BM25 を RRF で合成し<br/>上位k件（k=8）→ 同じページ全体に展開"]
+  R --> GR["grade 【Jev】<br/>チャンクごとに Noul で<br/>「質問に答える情報を含むか」の確率を取得<br/>閾値以上のチャンクだけ残す"]
+  GR --> Q{関係ある<br/>チャンクが<br/>1件以上？}
+  Q -- "はい" --> GEN["generate 【Claude】<br/>関係ありチャンクだけを根拠に<br/>出典つきで回答を生成"]
+  GEN --> V["verify 【Jev】<br/>Noul で「回答は根拠の抜粋に<br/>裏付けられているか」の確率を取得"]
+  V --> Q2{裏付け確率が<br/>閾値以上？}
+  Q2 -- "はい" --> END1((END))
+  Q2 -- "いいえ" --> NA
+  Q -- "いいえ かつ<br/>retry_count = 0" --> RW["rewrite 【Claude】<br/>検索しやすい表現に質問を言い換え<br/>retry_count を +1"]
+  RW --> R
+  Q -- "いいえ かつ<br/>retry_count = 1" --> NA["no_answer<br/>「資料からは分かりません」を返す<br/>（verify 不合格時は理由を添える）"]
+  NA --> END2((END))
+
+  style GEN fill:#ecfdf5,stroke:#047857
+  style NA fill:#fef2f2,stroke:#b91c1c
+  style RW fill:#fff7ed,stroke:#b45309
+  style GR fill:#f5f3ff,stroke:#6d28d9
+  style V fill:#f5f3ff,stroke:#6d28d9
+  </div>
+
+  <h3>各ノードの担当モデルと呼び出し回数（1質問あたり）</h3>
+  <table>
+    <tr><th>ノード</th><th>担当</th><th>呼び出し</th><th>v1 からの変更</th></tr>
+    <tr class="new"><td>grade</td><td>Jev（Noul × k問を1リクエストで一括）</td><td>1〜2回（再検索時2回）</td><td>Claude → Jev。数百ms・ほぼ無料に</td></tr>
+    <tr><td>rewrite</td><td>Claude</td><td>0〜1回</td><td>変更なし</td></tr>
+    <tr><td>generate</td><td>Claude</td><td>0〜1回</td><td>変更なし</td></tr>
+    <tr class="new"><td>verify</td><td>Jev（Noul × 1問）</td><td>0〜1回</td><td>新設</td></tr>
+    <tr><td>no_answer</td><td>なし（固定文）</td><td>—</td><td>verify 不合格の経路を追加</td></tr>
+  </table>
+
+  <h3>State（グラフが持ち回る状態）</h3>
+  <table>
+    <tr><th>フィールド</th><th>型</th><th>役割</th></tr>
+    <tr><td><code>question</code></td><td>str</td><td>現在の検索に使う質問（rewrite で上書きされる）</td></tr>
+    <tr><td><code>original_question</code></td><td>str</td><td>利用者が入力した元の質問（回答生成はこちらに答える）</td></tr>
+    <tr><td><code>documents</code></td><td>list[Document]</td><td>retrieve で取得したチャンク。grade 後は「関係あり」だけに絞る</td></tr>
+    <tr><td><code>is_relevant</code></td><td>bool</td><td>grade の判定結果（分岐1に使用）</td></tr>
+    <tr class="new"><td><code>relevance_scores</code></td><td>list[float]</td><td>grade で得たチャンクごとの確率（画面に表示・閾値調整に使う）</td></tr>
+    <tr><td><code>retry_count</code></td><td>int</td><td>言い換え再検索の回数（0 or 1）</td></tr>
+    <tr><td><code>answer</code></td><td>str</td><td>最終回答</td></tr>
+    <tr class="new"><td><code>is_grounded</code> / <code>groundedness</code></td><td>bool / float</td><td>verify の判定結果と確率（分岐2に使用）</td></tr>
+    <tr><td><code>sources</code></td><td>list[Source]</td><td>根拠（ファイル名・ページ・抜粋・関係確率）</td></tr>
+    <tr class="new"><td><code>steps</code></td><td>list[Step]</td><td>通過ノードと判定値の履歴（画面で「どう考えたか」を表示）</td></tr>
+  </table>
+
+  <h3><span class="tag new">v2</span> judge.py のインターフェース（Jev / Claude を差し替え可能にする）</h3>
+<pre><code>class Judge(Protocol):
+    def grade(self, question: str, chunks: list[str]) -> list[float]:
+        """各チャンクが質問に答える情報を含む確率（0〜1）を返す"""
+    def verify(self, question: str, answer: str, chunks: list[str]) -> float:
+        """回答が根拠チャンクに裏付けられている確率（0〜1）を返す"""
+
+# JevJudge   : typesafe-sdk の system_one() に Noul 質問を投げる（grade は k 問を1リクエストに同梱）
+# ClaudeJudge: 同じ質問を Claude の構造化出力で答えさせる（TYPESAFE_API_KEY 未設定時）
+# get_judge(): 環境変数を見てどちらかを返す。LangGraph のノードは Judge だけに依存する</code></pre>
+  <div class="callout note">
+    <b>なぜ確率で受け取るか：</b>Jev の Noul は Yes/No ではなく確率を返すので、<b>閾値を環境変数で調整</b>できます。日本語での精度は公式も「英語より劣る」と明記しているため、sample_docs で実測して閾値を決め、画面にも確率を出して挙動を目で確認できるようにします。
+  </div>
+</section>
+
+<!-- 4 -->
+<section id="seq">
+  <h2>4. 処理シーケンス</h2>
+  <h3>4-1. 質問 → 検索 → 判定（Jev） → 回答（Claude） → 検証（Jev）</h3>
+  <div class="mermaid">
+sequenceDiagram
+  autonumber
+  actor U as 利用者
+  participant UI as チャット画面
+  participant API as FastAPI<br/>/api/chat
+  participant G as LangGraph
+  participant VS as Chroma
+  participant JEV as Jev API
+  participant LLM as Claude API
+
+  U->>UI: 質問を入力
+  UI->>API: POST /api/chat {question}
+  API->>G: graph.invoke(state)
+  G->>VS: retrieve：類似チャンク上位k件
+  VS-->>G: チャンク一覧
+  G->>JEV: grade：Noul × k問（「この抜粋は質問に答える情報を含むか」）
+  JEV-->>G: 確率 [0.12, 0.08, 0.21, 0.05]（全て閾値未満）
+  Note over G: 関係なし・retry_count=0 → rewrite へ
+  G->>LLM: rewrite：質問の言い換え
+  LLM-->>G: 言い換え後の質問
+  G->>VS: retrieve（再検索）
+  VS-->>G: チャンク一覧
+  G->>JEV: grade：Noul × k問
+  JEV-->>G: 確率 [0.91, 0.14, 0.77, 0.33]
+  Note over G: 閾値0.6以上の 1件目・3件目 を根拠に採用
+  G->>LLM: generate：根拠つき回答
+  LLM-->>G: 回答文
+  G->>JEV: verify：Noul × 1問（「回答は根拠に裏付けられているか」）
+  JEV-->>G: 確率 0.94（閾値以上）
+  G-->>API: {answer, sources, steps}
+  API-->>UI: JSON
+  UI-->>U: 回答＋根拠カード＋判定履歴（確率つき）
+  </div>
+
+  <h3>4-2. verify 不合格 → 「資料からは断定できません」</h3>
+  <div class="mermaid">
+sequenceDiagram
+  autonumber
+  participant G as LangGraph
+  participant LLM as Claude API
+  participant JEV as Jev API
+  G->>LLM: generate：根拠つき回答
+  LLM-->>G: 回答文（根拠に無い内容を含んでしまった）
+  G->>JEV: verify：Noul × 1問
+  JEV-->>G: 確率 0.31（閾値未満）
+  Note over G: no_answer へ。生成した回答は破棄
+  G-->>G: answer = 「資料からは断定できませんでした。担当者にご確認ください。」<br/>sources = 根拠候補は残す（利用者が自分で確認できるように）
+  </div>
+
+  <h3>4-3. 2回目も関係なし → 「資料からは分かりません」</h3>
+  <div class="mermaid">
+sequenceDiagram
+  autonumber
+  participant G as LangGraph
+  participant VS as Chroma
+  participant JEV as Jev API
+  G->>VS: retrieve（再検索）
+  VS-->>G: チャンク一覧
+  G->>JEV: grade：Noul × k問
+  JEV-->>G: 確率 全て閾値未満
+  Note over G: retry_count=1 → no_answer へ（Claude は呼ばない）
+  G-->>G: answer = 「資料からは分かりません。担当者にご確認ください。」<br/>sources = []
+  </div>
+
+  <h3>4-4. 資料の取り込み（v1 から変更なし）</h3>
+  <div class="mermaid">
+sequenceDiagram
+  autonumber
+  actor Dev as 開発者 / 利用者
+  participant CLI as make ingest<br/>(python -m app.ingest)
+  participant L as Loader<br/>PDF / MD / TXT
+  participant SP as TextSplitter
+  participant EMB as FastEmbed
+  participant VS as Chroma
+  Dev->>CLI: 実行
+  CLI->>CLI: docs/ にファイルあり？ なければ sample_docs/ を使用
+  CLI->>L: ファイル読み込み（PDFはページ番号付き）
+  L-->>SP: Document 群
+  SP-->>EMB: チャンク（400字・重なり80字）
+  EMB-->>VS: ベクトル＋メタデータ（source, page）
+  VS-->>Dev: 取り込み件数を表示
+  Note over CLI,VS: UIのアップロードも同じ関数を呼ぶ（docs/ に保存 → 取り込み）
+  </div>
+</section>
+
+<!-- 5 -->
+<section id="tech">
+  <h2>5. 技術選定表</h2>
+  <table>
+    <tr><th>領域</th><th>採用</th><th>役割</th><th>選定理由</th><th>代替案（不採用理由）</th></tr>
+    <tr><td>言語 / 実行環境</td><td>Python 3.12</td><td>全体</td><td>LangChain / LangGraph の本家実装。ライブラリ対応が最も安定</td><td>TypeScript版 LangGraph（PDF処理・ベクトルDB周辺が薄い）</td></tr>
+    <tr><td>パッケージ管理</td><td>uv</td><td>依存解決・ロック</td><td>高速。Dockerビルドが短く、<code>uv.lock</code> で再現性が取れる</td><td>pip + requirements.txt（ロックが弱い）／Poetry（遅い）</td></tr>
+    <tr><td>LLM（生成）</td><td>Claude API<br/><code>langchain-anthropic</code></td><td>言い換え・回答生成<br/>（Jev 未設定時は判定も）</td><td>CLAUDE.md の必須要件。モデルは環境変数 <code>ANTHROPIC_MODEL</code>、既定 <code>claude-opus-5-5</code>（決定済み）</td><td>—（コスト重視なら <code>claude-sonnet-5-5</code> に差し替え可）</td></tr>
+    <tr class="new"><td>判断モデル <span class="tag new">v2</span></td><td>TypeSafe AI Jev<br/><code>typesafe-sdk</code><br/>モデル <code>jev-latest</code></td><td>チャンクの関係判定（grade）<br/>回答の裏付け検証（verify）</td><td>判断に特化し、確率（Noul）を返すので閾値制御ができる。入力 $0.042/100万トークン・出力無料・数百ms で、Claude に判定させるより桁違いに速く安い。「生成と判断の分離」をデモの見せ場にできる</td><td>Claude の構造化出力で判定（v1案。フォールバックとして残す）／専用の NLI・リランカーモデルをローカル実行（モデルが重く半日規模を超える）</td></tr>
+    <tr><td>制御フロー</td><td>LangGraph</td><td>retrieve→grade→分岐→verify</td><td>CLAUDE.md の必須要件。条件分岐・再試行回数の管理が宣言的に書け、図とコードが一致する</td><td>素の LangChain チェーン（分岐と再試行が書きにくい）</td></tr>
+    <tr><td>取り込み・分割</td><td>LangChain<br/>PyPDFLoader / TextLoader<br/>RecursiveCharacterTextSplitter</td><td>読み込み・チャンク化</td><td>PDFのページ番号をメタデータに保持でき、根拠表示にそのまま使える</td><td>Unstructured（依存が重い）／LlamaIndex（フレームワーク混在になる）</td></tr>
+    <tr><td>埋め込み</td><td>FastEmbed（ONNX・ローカル）<br/>多言語モデル</td><td>テキストのベクトル化</td><td><b>APIキー不要</b>・CPUで動く・PyTorch不要で Docker イメージが軽い。日本語対応の多言語モデルを使用</td><td>Voyage AI（別APIキーが必要）／sentence-transformers（PyTorch同梱で数GB）</td></tr>
+    <tr class="new"><td>キーワード検索 <span class="tag new">v2.1</span></td><td>rank-bm25（BM25Okapi）<br/>文字 2-gram 分割</td><td>固有名詞・表記そのものの一致で候補を補完</td><td>OCR された表や、カタカナ固有名詞のように「意味」より「その文字があるか」が重要な資料で、ベクトル検索の取り逃しを埋める。辞書・形態素解析器が不要で軽い。ベクトル結果と RRF（Reciprocal Rank Fusion）で合成</td><td>MeCab 等の形態素解析（辞書が重く Docker イメージが肥大）／Elasticsearch（コンテナが増える）</td></tr>
+    <tr><td>ベクトルDB</td><td>Chroma<br/><code>langchain-chroma</code></td><td>ベクトル保存・類似検索</td><td>サーバ不要でファイル永続化。1コンテナで完結し、Docker 一発起動の要件に合う</td><td>FAISS（永続化・メタデータ管理を自作）／Qdrant・pgvector（コンテナが増える）</td></tr>
+    <tr><td>API</td><td>FastAPI</td><td>チャット・アップロード・取り込み</td><td>型つきスキーマ（Pydantic）が自動で OpenAPI ドキュメントになる。静的HTMLも配信できる</td><td>Flask（型・ドキュメント生成が弱い）</td></tr>
+    <tr><td>画面</td><td>静的HTML + Vanilla JS<br/>（FastAPI が配信）</td><td>チャット画面・根拠表示・判定履歴・アップロード</td><td>ビルド不要・追加プロセス不要。ポートフォリオとして見た目を自由に作り込める</td><td>Streamlit / Gradio（プロセスが増え、見た目の自由度が低い）／React（半日規模に対してビルドが重い）</td></tr>
+    <tr><td>テスト</td><td>pytest</td><td>LangGraph 分岐のテスト</td><td>Claude・Jev・検索をモックに差し替え、分岐を検証する</td><td>—</td></tr>
+    <tr><td>実行基盤</td><td>Docker + Compose</td><td>一発起動</td><td><code>docker compose up</code> のみで起動。<code>docs/</code> と <code>data/</code> をボリュームで永続化</td><td>—</td></tr>
+  </table>
+  <div class="callout new">
+    <b>Jev の呼び出し方（grade の例）：</b>state に「質問＋チャンク本文」を入れ、Noul 質問を k 個（チャンク数ぶん）同じリクエストに同梱します。Jev は質問を並列に評価するため、k を増やしても応答時間はほぼ増えません。<br>
+    <code>client.system_one(state={"question": q, "chunks": [...]}, questions={"chunk_0": Noul(instructions="chunks[0] は question に答える情報を含むか"), ...})</code> → <code>answers["chunk_0"].noul</code>（0〜1）
+  </div>
+</section>
+
+<!-- 6 -->
+<section id="dirs">
+  <h2>6. ディレクトリ構成</h2>
+<div class="tree">knowledge-base-demo/
+├── app/                        <span class="c"># アプリ本体（Pythonパッケージ）</span>
+│   ├── __init__.py
+│   ├── config.py               <span class="c"># 環境変数の読み込み（APIキー・モデル名・閾値・パス等）</span>
+│   ├── prompts.py              <span class="c"># プロンプト・Jev の instructions を1ファイルに集約（日本語）</span>
+│   ├── loaders.py              <span class="c"># PDF/MD/TXT の読み込み → チャンク分割</span>
+│   ├── vectorstore.py          <span class="c"># 埋め込みモデルと Chroma の初期化・追加・検索</span>
+│   ├── ingest.py               <span class="c"># 取り込みCLI（docs/ が空なら sample_docs/ にフォールバック）</span>
+<span class="n">│   ├── retriever.py            # 【v2.1】ハイブリッド検索（ベクトル + BM25 → RRF）</span>
+<span class="n">│   ├── judge.py                # 【v2】判断インターフェース：JevJudge / ClaudeJudge / get_judge()</span>
+│   ├── graph.py                <span class="c"># LangGraph 定義（State・6ノード・2つの条件分岐）</span>
+│   ├── schemas.py              <span class="c"># API入出力・構造化出力の Pydantic モデル</span>
+│   └── main.py                 <span class="c"># FastAPI（API + 静的HTML配信）</span>
+├── static/
+│   └── index.html              <span class="c"># チャット画面（1ファイル完結、ビルド不要）</span>
+├── tests/
+│   ├── conftest.py             <span class="c"># Claude・Jev・検索のモック</span>
+<span class="n">│   ├── test_judge.py           # 【v2】Jev レスポンスの変換・フォールバック切替のテスト</span>
+│   └── test_graph.py           <span class="c"># 分岐テスト：関係あり／なし→再試行→回答／なし→再試行→分からない／verify不合格</span>
+├── sample_docs/                <span class="c"># お試し用の極小サンプル（架空・自作、各数百字）</span>
+│   ├── distillery_kurotaki.md  <span class="c"># 架空の蒸留所の紹介</span>
+│   ├── cask_types.md           <span class="c"># 樽の種類の簡単な説明</span>
+│   └── tasting_terms.txt       <span class="c"># テイスティング用語メモ</span>
+├── docs/                       <span class="c"># 本番資料（.gitignore で丸ごと除外、.gitkeep のみ）</span>
+├── data/                       <span class="c"># Chroma の永続化先（git除外）</span>
+├── design/
+│   └── plan.html               <span class="c"># 設計書（単一ファイル。冒頭の変更履歴に追記して更新）</span>
+├── screenshots/                <span class="c"># README 用のGIF・スクショ置き場（.gitkeep）</span>
+├── .env.example                <span class="c"># 環境変数のひな形（キーは空）</span>
+├── .gitignore
+├── Dockerfile
+├── compose.yaml
+├── Makefile                    <span class="c"># make up / make ingest / make test</span>
+├── pyproject.toml
+├── uv.lock
+└── README.md</div>
+
+  <h3>環境変数（.env.example）</h3>
+  <table>
+    <tr><th>変数</th><th>既定値</th><th>説明</th></tr>
+    <tr><td><code>ANTHROPIC_API_KEY</code></td><td>（必須）</td><td>Claude API キー。コード・ログには出さない</td></tr>
+    <tr><td><code>ANTHROPIC_MODEL</code></td><td><code>claude-opus-5-5</code></td><td>言い換え・回答生成に使うモデル（決定済み）</td></tr>
+    <tr class="new"><td><code>TYPESAFE_API_KEY</code></td><td>（任意）</td><td>Jev の API キー。未設定なら grade / verify を Claude が代行</td></tr>
+    <tr class="new"><td><code>JEV_MODEL</code></td><td><code>jev-latest</code></td><td>Jev のモデル（現在 <code>jev-1.14.0</code> を指す）</td></tr>
+    <tr class="new"><td><code>GRADE_THRESHOLD</code></td><td><code>0.6</code></td><td>チャンクを「関係あり」とみなす確率の下限（実測して調整）</td></tr>
+    <tr class="new"><td><code>VERIFY_THRESHOLD</code></td><td><code>0.7</code></td><td>回答を「裏付けあり」とみなす確率の下限（実測して調整）</td></tr>
+    <tr class="new"><td><code>VERIFY_ENABLED</code></td><td><code>true</code></td><td><code>false</code> で verify ノードを素通りさせる（コスト・速度の比較デモ用）</td></tr>
+    <tr><td><code>EMBEDDING_MODEL</code></td><td>多言語の小型モデル</td><td>FastEmbed のモデル名（実装時に日本語での動作を確認して確定）</td></tr>
+    <tr><td><code>DOCS_DIR</code> / <code>SAMPLE_DOCS_DIR</code></td><td><code>docs</code> / <code>sample_docs</code></td><td>取り込み元</td></tr>
+    <tr><td><code>CHROMA_DIR</code></td><td><code>data/chroma</code></td><td>ベクトルDBの保存先</td></tr>
+    <tr><td><code>RETRIEVE_K</code></td><td><code>8</code></td><td>検索で取得するチャンク数（v2.1 で 4 → 8）</td></tr>
+    <tr class="new"><td><code>EXPAND_TO_PAGE</code></td><td><code>true</code></td><td>取得チャンクを同じページ全体に展開してから判定・回答に渡す（スキャン資料の表対策、v2.1）</td></tr>
+    <tr><td><code>CHUNK_SIZE</code> / <code>CHUNK_OVERLAP</code></td><td><code>400</code> / <code>80</code></td><td>チャンク分割の設定（埋め込みモデルの入力上限 512 トークンに収めるため、実装時に 800/150 から変更）</td></tr>
+  </table>
+</section>
+
+<!-- 7 -->
+<section id="api">
+  <h2>7. API一覧</h2>
+  <table>
+    <tr><th>メソッド</th><th>パス</th><th>概要</th><th>入力</th><th>出力</th></tr>
+    <tr><td>GET</td><td><code>/</code></td><td>チャット画面（静的HTML）</td><td>—</td><td>HTML</td></tr>
+    <tr><td>POST</td><td><code>/api/chat</code></td><td>質問に根拠つきで回答</td><td><code>{question}</code></td><td><code>{answer, found, sources:[{file, page, excerpt, relevance}], rewritten_question?, groundedness?, steps:[{node, detail}], judge:"jev"|"claude"}</code></td></tr>
+    <tr><td>POST</td><td><code>/api/upload</code></td><td>ファイルをアップロードして取り込み（PDF/MD/TXT）</td><td>multipart file</td><td><code>{file, chunks}</code></td></tr>
+    <tr><td>POST</td><td><code>/api/ingest</code></td><td><code>docs/</code>（空なら <code>sample_docs/</code>）を一括取り込み</td><td>—</td><td><code>{files, chunks, source_dir}</code></td></tr>
+    <tr><td>GET</td><td><code>/api/documents</code></td><td>取り込み済みファイル一覧とチャンク数</td><td>—</td><td><code>{documents:[{file, chunks}]}</code></td></tr>
+    <tr><td>GET</td><td><code>/api/health</code></td><td>起動確認（ベクトルDBの件数・使用中の判断モデルも返す）</td><td>—</td><td><code>{status, chunks, judge}</code></td></tr>
+  </table>
+  <div class="callout note">
+    <code>steps</code> には「retrieve → grade(0.12/0.08/0.21/0.05 → 関係なし) → rewrite → retrieve → grade(0.91/0.14/0.77/0.33 → 2件採用) → generate → verify(0.94 → 合格)」のような<b>通過ノードと判定値の履歴</b>を入れ、画面に表示します。LangGraph の分岐と Jev の判定が目に見えるデモにするためです。
+  </div>
+  <div class="callout warn">
+    <b>会話履歴はサーバに保持しません。</b>1質問1回答の単発Q&Aです（CLAUDE.md「DB永続化の作り込みはしない」に対応）。
+  </div>
+</section>
+
+<!-- 8 -->
+<section id="steps">
+  <h2>8. 作業ステップ</h2>
+  <table>
+    <tr><th>#</th><th>ステップ</th><th>成果物</th><th>完了条件（確認方法）</th></tr>
+    <tr><td>0</td><td>設計承認</td><td>本書</td><td>PMの承認（§9 の判断事項に回答をもらう）— 2026-10-25 承認済み</td></tr>
+    <tr><td>1</td><td>プロジェクト雛形</td><td>pyproject.toml / .gitignore / .env.example / Dockerfile / compose.yaml / Makefile / sample_docs / git init</td><td><code>docker compose build</code> が通る。<code>git status</code> で .env・docs・data が追跡外</td></tr>
+    <tr><td>2</td><td>取り込み</td><td>config.py / loaders.py / vectorstore.py / ingest.py</td><td><code>make ingest</code> で sample_docs が取り込まれ、チャンク件数が表示される。PDFはページ番号がメタデータに入る</td></tr>
+    <tr class="new"><td>3</td><td>判断レイヤー <span class="tag new">v2</span></td><td>judge.py / prompts.py（Jev の instructions）/ tests/test_judge.py</td><td>Jev キーあり：sample_docs の日本語チャンクで grade を実行し、関係あり／なしの確率差が出ることを確認して閾値を決める。キーなし：ClaudeJudge に切り替わる</td></tr>
+    <tr><td>4</td><td>LangGraph</td><td>schemas.py / graph.py</td><td>CLIで質問すると根拠つき回答が返る。無関係な質問には「分かりません」が返る。verify 不合格の経路が動く</td></tr>
+    <tr><td>5</td><td>テスト</td><td>tests/test_graph.py</td><td><code>make test</code> が緑。関係あり／なし→再試行→回答／なし→再試行→分からない／verify不合格 の4分岐を Claude・Jev モックで検証</td></tr>
+    <tr><td>6</td><td>API</td><td>main.py</td><td><code>curl</code> で /api/chat・/api/upload・/api/ingest・/api/health が期待どおり返る</td></tr>
+    <tr><td>7</td><td>画面</td><td>static/index.html</td><td>ブラウザで質問→回答＋根拠カード（関係確率つき）＋判定履歴が表示され、アップロードもできる</td></tr>
+    <tr><td>8</td><td>README・仕上げ</td><td>README.md / screenshots/.gitkeep</td><td>README の手順だけで clone → 起動 → 質問 ができる。Mermaid図・「生成と判断の分離」の設計意図・拡張案を記載</td></tr>
+  </table>
+  <div class="callout ok">
+    <b>所要時間の目安：</b>合計 半日強（5〜6時間）。v1 比で +30〜60分（ステップ3の追加と、テスト・画面への判定値表示）。
+  </div>
+</section>
+
+<!-- 9 -->
+<section id="risks">
+  <h2>9. リスク・判断が必要な点</h2>
+  <p>以下は設計時に PM に判断を求めた論点です。<b>すべて推奨案どおりで決定済み</b>（A〜G は 2026-10-25、H は 2026-10-26 にキー設定）。<span class="tag rec">推奨</span> は決定した案を示します。</p>
+
+  <h3>PMに決めてほしいこと</h3>
+  <table>
+    <tr><th>#</th><th>論点</th><th>選択肢</th><th>推奨と理由</th></tr>
+    <tr>
+      <td>A</td><td>埋め込み（ベクトル化）の方式</td>
+      <td>①FastEmbed（ローカル、キー不要）<br>②Voyage AI（API、別キー必要）</td>
+      <td><span class="tag rec">① FastEmbed</span> 必須キーを Claude の1つに抑える。初回起動時にモデル（数百MB）をダウンロードするため、初回だけ1〜2分待ちが発生する点は許容</td>
+    </tr>
+    <tr>
+      <td>B</td><td>既定のモデル</td>
+      <td>—</td>
+      <td><span class="tag done">決定済</span> <code>claude-opus-5-5</code>。環境変数で差し替え可</td>
+    </tr>
+    <tr>
+      <td>C</td><td>画面の作り方</td>
+      <td>①静的HTML（FastAPI配信）<br>②Streamlit</td>
+      <td><span class="tag rec">① 静的HTML</span> 1コンテナ・ビルド不要で、見た目をポートフォリオ向けに作り込める</td>
+    </tr>
+    <tr>
+      <td>D</td><td>回答のストリーミング表示</td>
+      <td>①v1では非対応（JSONで一括返却）<br>②SSEで逐次表示</td>
+      <td><span class="tag rec">① 非対応</span> verify を通してから返す設計なので、逐次表示とは相性が悪い点もある。拡張案としてREADMEに記載</td>
+    </tr>
+    <tr>
+      <td>E</td><td>Gitリポジトリ</td>
+      <td>①ローカルで <code>git init</code> のみ<br>②GitHubに公開リポジトリも作成</td>
+      <td><span class="tag rec">① git init のみ</span> 公開はREADME・スクショが揃ってから</td>
+    </tr>
+    <tr class="new">
+      <td>F</td><td><span class="tag new">v2</span> Jev の適用範囲</td>
+      <td>①grade のみ<br>②grade ＋ verify</td>
+      <td><span class="tag rec">② grade ＋ verify</span> verify がハルシネーション対策の本体。追加コストは1質問あたり Jev 1回（ほぼ無料・数百ms）。<code>VERIFY_ENABLED=false</code> で比較デモもできる</td>
+    </tr>
+    <tr class="new">
+      <td>G</td><td><span class="tag new">v2</span> verify 不合格時の挙動</td>
+      <td>①回答を破棄し「断定できません」＋根拠候補を表示<br>②回答は出すが「裏付けが弱い」注意書きを添える</td>
+      <td><span class="tag rec">① 破棄</span> 「誤情報を出すより担当者確認に回す方が安全」という CLAUDE.md の方針に一致。根拠候補は残すので利用者が自分で確認できる</td>
+    </tr>
+    <tr class="new">
+      <td>H</td><td><span class="tag new">v2</span> Jev の API キー</td>
+      <td>TypeSafe のコンソールでキーを発行し <code>.env</code> に設定</td>
+      <td><span class="tag done">対応済</span> PM 側でキーを発行し <code>.env</code> に設定済み。実資料で Jev の判定値を較正した（§9 リスク欄参照）</td>
+    </tr>
+  </table>
+
+  <h3>技術リスクと対策</h3>
+  <table>
+    <tr><th>リスク</th><th>影響</th><th>対策</th></tr>
+    <tr class="new"><td>verify の判定指示が厳しすぎると、正しい一覧回答を弾く（実測: 旧指示で 0.63〜0.73 と閾値付近）</td><td>「断定できません」が増え、使い物にならない</td><td>実資料で較正済み（v2.1）。「網羅性は問わない」「記載なしの断り・表記揺れの注記は裏付け不要」と指示に明記し、正しい一覧回答 0.90 / 捏造回答 0.06 に分離。指示は prompts.py に集約し再較正しやすくする</td></tr>
+    <tr class="new"><td>Jev の日本語精度（公式が「英語より劣る」と明記）</td><td>関係あるチャンクを落とす／無関係を通す。verify が正しい回答を弾く</td><td>確率で受け取り閾値を環境変数化。sample_docs で実測して初期値を決める。grade を外しても rewrite の再検索が救済。判定値を画面に出して挙動を可視化</td></tr>
+    <tr class="new"><td>Jev が2026年9月公開の新サービス（API変更・障害の可能性）</td><td>デモが動かなくなる</td><td>呼び出しを <code>judge.py</code> に閉じ込め、Jev 側のエラー時は <b>自動で ClaudeJudge にフォールバック</b>し、<code>steps</code> にその旨を記録。テストはモックなので外部依存なし</td></tr>
+    <tr class="new"><td>「Jev はハルシネーションしない」という表現の誤解</td><td>READMEの記述が過大になる</td><td>READMEでは「文章を生成しないので捏造は起きないが、判断は間違い得る。だから閾値とフォールバックを設ける」と正確に書く</td></tr>
+    <tr><td>Dockerイメージが大きくなる（ONNXランタイム＋Chroma＋埋め込みモデル）</td><td>初回ビルド・起動が遅い</td><td>uv のキャッシュ活用、マルチステージビルド、埋め込みモデルはボリュームにキャッシュして2回目以降は即起動</td></tr>
+    <tr><td>日本語資料の検索精度（埋め込みモデルの日本語性能）</td><td>関係あるチャンクを取り逃す</td><td>多言語対応モデルを選定し、実装時に sample_docs で日本語クエリを確認。rewrite ノードが取り逃しを一部救済</td></tr>
+    <tr class="new"><td>OCR 資料の表記揺れ・表の分断（実資料で発生）</td><td>固有名詞で検索が外れる／表の見出しと行が別チャンクになり一覧が欠ける</td><td>BM25 の照合で濁点・半濁点を無視。取得チャンクを同じページ全体に展開（<code>EXPAND_TO_PAGE</code>）。実測で 12 件中 7 → 12 件に改善（v2.1）</td></tr>
+    <tr><td>PDFがスキャン画像（文字が取れない）</td><td>取り込んでも空チャンク</td><td>v1はテキスト抽出のみ対応。空のページはスキップし、取り込み結果に警告を出す。OCRは拡張案</td></tr>
+    <tr><td>ローカル環境が Python 3.14（新しすぎて一部ライブラリ未対応の可能性）</td><td>ローカル実行でエラー</td><td>Docker（Python 3.12）を正とし、ローカルも uv で 3.12 を使う</td></tr>
+  </table>
+
+  <div class="callout ok">
+    <b>状況：</b>上記の判断事項はすべて決定済みで、作業ステップ 1〜8 は実装・動作確認まで完了しています。以後の設計変更は冒頭の「変更履歴」に追記します。
+  </div>
+</section>
+
+</main>
+<footer>knowledge-base-qa / design/plan.html</footer>
+
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: 'neutral', securityLevel: 'loose', flowchart: { htmlLabels: true, curve: 'basis' }, sequence: { useMaxWidth: true } });
+</script>
+</body>
+</html>

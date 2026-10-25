@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    container_name: knowledge-base-qa
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      # 本番資料（git 管理外）と生成物（ベクトルDB・モデルキャッシュ）はホスト側に残す
+      - ./docs:/app/docs
+      - ./data:/app/data
+    restart: unless-stopped
