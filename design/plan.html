@@ -233,7 +233,7 @@ flowchart TD
     def verify(self, question: str, answer: str, chunks: list[str]) -> float:
         """回答が根拠チャンクに裏付けられている確率（0〜1）を返す"""
 
-# JevJudge   : typesafe-sdk の system_one() に Noul 質問を投げる（grade は k 問を1リクエストに同梱）
+# JevJudge   : typesafe-sdk の system_one() に Noul 質問を送る（grade は k 問を1リクエストに同梱）
 # ClaudeJudge: 同じ質問を Claude の構造化出力で答えさせる（TYPESAFE_API_KEY 未設定時）
 # get_judge(): 環境変数を見てどちらかを返す。LangGraph のノードは Judge だけに依存する</code></pre>
   <div class="callout note">

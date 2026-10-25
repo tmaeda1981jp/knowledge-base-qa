@@ -77,7 +77,7 @@ docker compose up -d
 docker compose run --rm app python -m app.ingest   # 取り込み直し
 ```
 
-`data/fastembed_cache/`（埋め込みモデルのキャッシュ）は残して構わない。消すと次回の取り込みで再ダウンロードが走る。
+`data/fastembed_cache/`（埋め込みモデルのキャッシュ）は残して構わない。消すと次回の取り込みで再ダウンロードが発生する。
 
 ## 環境変数
 
