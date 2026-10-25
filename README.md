@@ -30,7 +30,7 @@ LangChain / LangGraph / Claude API / Jev（TypeSafe AI・任意）/ FastEmbed / 
 必要なもの: Docker、Claude API キー（[Anthropic Console](https://console.anthropic.com/)）
 
 ```bash
-git clone https://github.com/<your-account>/knowledge-base-qa.git
+git clone https://github.com/tmaeda1981jp/knowledge-base-qa.git
 cd knowledge-base-qa
 cp .env.example .env            # ANTHROPIC_API_KEY を書き込む
 docker compose up --build -d    # 初回はビルドに数分
@@ -64,8 +64,20 @@ Jev 側でエラーが起きたときは自動で Claude の判定に切り替�
 
 - スキャンした PDF は、スキャナー側で OCR（テキスト認識）をかけたものを置いてください。画像だけの PDF は文字を取り出せず警告が出ます
 - 同じファイル名を取り込み直すと、古い内容を消して差し替えます
-- 取り込んだ内容をすべて消したいときは `data/chroma/` を削除して取り込み直してください
 - 著作権の都合で、デモに使った実際の資料は同梱していません
+
+### 取り込んだデータをリセットする
+
+取り込んだ内容はすべて `data/chroma/` に入っています。サンプルから自分の資料に切り替えるときなど、まっさらにしたい場合は次を実行します。
+
+```bash
+docker compose down        # 起動中なら止める
+rm -rf data/chroma         # ベクトルDBを削除（make reset でも同じ）
+docker compose up -d
+docker compose run --rm app python -m app.ingest   # 取り込み直し
+```
+
+`data/fastembed_cache/`（埋め込みモデルのキャッシュ）は残して構いません。消すと次回の取り込みで再ダウンロードが走ります。
 
 ## 環境変数
 
@@ -102,6 +114,15 @@ flowchart TD
 ```
 
 設計の判断理由や実資料での較正の経緯は [`design/plan.html`](design/plan.html) にまとめています。
+
+### キーワード検索の分割方式について
+
+検索はベクトル検索（意味）と BM25（文字の一致）を組み合わせています。BM25 側の日本語の分割は、形態素解析ではなく**文字 2-gram**（2 文字ずつの組）にしています。
+
+- 今回の題材（ウイスキーの資料）は蒸留所名・会社名などの固有名詞が多く、辞書に無い語や OCR の誤認識（「ペルノ」→「ベルノ」）が頻発しました。2-gram は辞書に頼らず、語の一部が壊れていても残りで照合できるため、この条件では有利でした
+- 一方で、文章主体の資料（社内規程・マニュアルなど）では、形態素解析のほうが単語の境界が正しく、「東京都」が「京都」に当たるような偽の一致も起きません。活用形の正規化も効きます
+
+資料の性質によって最適解が変わる部分です。分割処理は `app/retriever.py` の `tokenize()` に閉じているので、Janome や Sudachi などの形態素解析器に差し替えたり、形態素と 2-gram を併用したりする実験が簡単にできます。
 
 ## 開発
 
